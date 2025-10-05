@@ -1,0 +1,247 @@
+---
+title: "ARIMA model for BDM project"
+author: "Jayprakash Kakde"
+date: "2023-01-29"
+output: word_document
+---
+
+
+# Loading Data Set
+
+```{r}
+# Setting Environment and working director folder
+setwd("D:/IIT Madras Diploma in DS/Business Data Management/Project/Data/My Analysis")
+mypath <- .libPaths()
+mypath
+.libPaths(mypath)
+# options(warn=1)
+
+
+# Importing data from excel
+library(readxl)
+Water_data <- read_excel("Analysis 1.xlsx",sheet = "Water Consumption of Recident")
+# head(Water_data)
+#View(Water_data)
+
+
+# Removing Extra columns
+Water_data <- Water_data[-c(32:44),-c(9:16)]
+head(Water_data)
+```
+
+
+
+# Cleaning data
+
+```{r}
+# Checking summary and structure(i.e. data type) of data 
+summary(Water_data)
+str(Water_data)
+
+
+# Changing data into proper data type for analysis
+Water_data$Month <- as.factor(Water_data$Month)
+Water_data$Year <- as.factor(Water_data$Year)
+Water_data$`Internal Borewell (KL)` <- as.numeric(Water_data$`Internal Borewell (KL)`)
+Water_data$`Tanker Water (KL)` <- as.numeric(Water_data$`Tanker Water (KL)`)
+
+
+# Changing container/data type of data to make it easier for analysis
+class(Water_data)
+Water_data <- as.data.frame(Water_data)
+class(Water_data)
+```
+
+
+
+# Checking cleaned data
+
+```{r}
+# Finally Checking characteristics and summary of data
+dim(Water_data)
+class(Water_data)
+str(Water_data)
+summary(Water_data)
+head(Water_data)
+tail(Water_data)
+```
+
+
+# Analysing time series
+
+```{r}
+library(forecast)
+library(tseries)
+library(astsa)
+library(ggplot2)
+
+# Assumptions of ARIMA model
+  # 1. Data should be stationary 
+  # 2. Data should be uni-variate 
+
+# Making Time series object of Total, Tanker, Borewell water consumption.
+tsTanker <- ts(Water_data$`Tanker Water (KL)`, start = c(2020, 3), end = c(2022, 9), frequency = 12)
+
+tsBorewell <- ts(Water_data$`Internal Borewell (KL)`, start = c(2020, 3), end = c(2022, 9), frequency = 12)
+
+tsTotal <- ts(Water_data$`Total Water Consumption (KL)`, start = c(2020, 3), end = c(2022, 9), frequency = 12)
+
+# Time Series Plots
+ts.plot(tsTanker, main = "Water Consumption by Tanker", xlab = "Time", ylab = "Water Consumption")
+
+ts.plot(tsBorewell, main = "Water Consumption by Borewell", xlab = "Time", ylab = "Water Consumption")
+
+ts.plot(tsTotal, main = "Total Water Consumption", xlab = "Time", ylab = "Water Consumption")
+
+
+# Decomposing the time series data into trend, season and random components
+decoTanker <- decompose(tsTanker, "additive")
+plot(decoTanker)
+
+decoBorewell <- decompose(tsBorewell, "additive")
+plot(decoBorewell)
+
+decoTotal <- decompose(tsTotal, "additive")
+plot(decoTotal)
+```
+
+
+```{r}
+acf(tsTanker)
+
+Pacf(tsTanker)
+```
+
+
+
+# Building ARIMA model for this problem.
+
+```{r}
+#Making it Auto ARIMA model
+ARIMA_Model <- arima(tsTanker, order = c(1,1,1), seasonal = c(0,1,1))
+#ARIMA_Model <- auto.arima(tsTanker, ic="aic", trace = TRUE)
+summary(ARIMA_Model)
+
+print("________________________________________________________________________")
+
+# I have taken here p=1 in order because there was downward trend of water usages 
+# because of Covid-19 Lockdown people were at home and using more water for cleaning 
+# but as  Lockdown lifted and time passed people started going to office and were not 
+# using that much water for cleaning as before. So to remove trend, I have used it.
+
+##### Residual analysis #####
+#diagnostic and validation
+# There should not be any pattern in residuals
+plot.ts(ARIMA_Model$residuals)
+
+# Residuals should be normally distributed
+hist(ARIMA_Model$residuals)
+qqnorm(ARIMA_Model$residuals, lwd = 2)
+#qqline(ARIMA_Model$residuals)
+#shapiro.test(ARIMA_Model$residuals)
+
+# Residual should be uncorrelated to each other
+
+acf(ARIMA_Model$residuals, main="ACF residuals")
+Box.test(ARIMA_Model$residuals, lag = 1, type = "Box-Pierce")
+#pacf(ARIMA_Model$residuals,main="PACF residuals")
+# plot(ARIMA_Model$x, col='red')
+
+checkresiduals(ARIMA_Model)
+```
+
+
+# forecasting
+
+```{r}
+# forecasting
+Tanker_Prediction <- forecast(ARIMA_Model, h=12)
+#Tanker_Prediction <- forecast(ARIMA_Model, h=2*12,level = c(50, 80))
+plot(Tanker_Prediction, main = "ARIMA Forecast on Tanker Water For 1 Year",lwd=1.5)
+
+# checking accuracy
+#tsTankerTrain <- window(tsTanker, end = c(2022,3))
+
+#tsModelTrain <- HoltWinters(tsTankerTrain)
+#tsModelTrain <- auto.arima(tsTankerTrain, seasonal = TRUE)
+#tsModelTrain <- auto.arima(tsTankerTrain, trace = T, stepwise = FALSE)
+#tsModelTrain <- arima(tsTankerTrain, order = c(1,1,1), seasonal = c(0,1,1))
+#tsModelTrain <- arima(tsTankerTrain, order = c(1,1,4), seasonal = c(0,1,1))
+# tsModelTrain
+
+# print("______________________________________________________________________")
+
+# tsModelTrainForcast <- forecast(tsModelTrain, h=9)
+# plot(tsModelTrainForcast)
+
+#test <- window(tsTanker)
+#accuracy(tsModelTrainForcast, test)
+# test1 <- window(tsTanker, start = c(2022,3))
+# accuracy(tsModelTrainForcast, test1)
+```
+
+
+# Modified/New way of checking acurracy of model.
+
+```{r}
+# Train
+tsTankerTrain <- window(tsTanker, end = c(2022,3))
+# Test
+test1 <- window(tsTanker, start = c(2022,3))
+
+# Fitting the model
+tsModelTrain <- arima(tsTankerTrain, order = c(1,1,1), seasonal = c(0,1,1))
+
+# Forecast on train data
+tsModelTrainForcast <- forecast(tsModelTrain, h=6)
+
+checkresiduals(tsModelTrain)
+
+# plot the forecasts against the actual values
+plot(tsModelTrainForcast, main = "ARIMA Forecast on Tanker Water", lwd=1.5)
+lines(test1, col = "red", lwd = 3)
+legend("bottomleft", legend = c("Actual", "Forecast"), col = c("red", "blue"), lty = 1)
+
+# Calculate the accuracy of the forecast
+accuracy(tsModelTrainForcast, test1)
+```
+
+
+# Converting data from months to days by using weights of number of tanker ordered.
+
+```{r}
+# Exporting Prediction data of Total Water consumption.
+
+# Install xlsx and openxlsx.
+library(xlsx)
+Tanker_Prediction
+class(Tanker_Prediction)
+#as.data.frame(Tanker_Prediction)
+
+library(ggfortify)
+Tanker_Prediction_df = fortify(Tanker_Prediction)
+class(Tanker_Prediction_df)
+
+write.xlsx(Tanker_Prediction_df,"Tanker_Prediction.xlsx", sheetName = "Tanker_Prediction by Month 3",col.names = TRUE, append = TRUE)
+```
+
+
+```{r}
+# Tankers daily prediction
+Daily_Tanker_Estimation <- read_excel("Analysis 4.xlsx",sheet = "Table 6")
+head(Daily_Tanker_Estimation)
+
+summary(Daily_Tanker_Estimation$`Final Prediction/Number of tankers to order`)
+```
+
+
+```{r}
+# Original values of daily tanker orders given to us
+
+Daily_Tanker_Ordered <- read_excel("Analysis 4.xlsx",sheet = "Table 4")
+head(Daily_Tanker_Ordered)
+
+summary(Daily_Tanker_Ordered$`Number of Tanker Ordered`)
+#View(Daily_Tanker_Ordered)
+```
+

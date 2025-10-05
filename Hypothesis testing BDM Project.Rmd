@@ -1,0 +1,143 @@
+---
+title: "Hypothesis Testing BDM Project"
+author: "Jayprakash Kakde"
+date: "2023-01-27"
+output: word_document
+---
+
+# Loading Data Set
+
+```{r}
+# Setting Environment and working director folder
+setwd("D:/IIT Madras Diploma in DS/Business Data Management/Project/Data/My Analysis")
+mypath <- .libPaths()
+mypath
+.libPaths(mypath)
+# options(warn=1)
+
+
+# Importing data from excel
+library(readxl)
+Water_data <- read_excel("Analysis 1.xlsx",sheet = "Water Consumption of Recident")
+# head(Water_data)
+View(Water_data)
+
+
+# Removing Extra columns
+Water_data <- Water_data[-c(32:44),-c(9:16)]
+head(Water_data)
+```
+
+
+
+# Cleaning data
+
+```{r}
+# Checking summary and structure(i.e. data type) of data 
+summary(Water_data)
+str(Water_data)
+
+
+# Changing data into proper data type for analysis
+Water_data$Month <- as.factor(Water_data$Month)
+Water_data$Year <- as.factor(Water_data$Year)
+Water_data$`Internal Borewell (KL)` <- as.numeric(Water_data$`Internal Borewell (KL)`)
+Water_data$`Tanker Water (KL)` <- as.numeric(Water_data$`Tanker Water (KL)`)
+
+
+# Changing container/data type of data to make it easier for analysis
+class(Water_data)
+Water_data <- as.data.frame(Water_data)
+class(Water_data)
+```
+
+
+
+# Checking cleaned data
+
+```{r}
+# Finally Checking characteristics and summary of Water_data
+dim(Water_data)
+print("______________________________________________________________________")
+class(Water_data)
+print("______________________________________________________________________")
+str(Water_data)
+print("______________________________________________________________________")
+summary(Water_data)
+
+```
+
+
+
+# Checking assumption of normality
+
+```{r}
+# Plot data in scatter and histogram for each variable to check linearity and distribution of each variable in data.
+library(ggplot2)
+library(GGally)
+library(psych)
+
+pairs.panels(Water_data)
+
+
+# Checking normality of each numerical variable in data 
+# We know  Cauveri River (KL) & rain water harvesting (KL) would follow normal distribution. and last two column are basically same.
+shapiro.test(Water_data$`Internal Borewell (KL)`)
+print("______________________________________________________________________")
+shapiro.test(Water_data$`Tanker Water (KL)`)
+print("______________________________________________________________________")
+shapiro.test(Water_data$`Total Water Consumption (KL)`)
+
+# H0: Data follows normal distribution  
+# H1: Data does NOT follows normal distribution
+
+# Since P-value for Internal Borewell (KL) & Tanker Water (KL) both variable is < 0.05, hence we Reject H0 i.e. Internal Borewell (KL) & Tanker Water (KL) are NOT normally distributed.
+
+# Also, P-value for Total Water Consumption (KL) is > 0.05, Hence we Accept H0 i.e. Total Water Consumption (KL) follows normal distribution.
+
+plot(Water_data$`Internal Borewell (KL)`, Water_data$`Tanker Water (KL)`)
+
+```
+
+
+
+# Checking assumption of autocorrelation
+
+```{r}
+# Checking auto correlation in data.
+library(lmtest)
+
+# Linear_model <- lm(Total Water Consumption (KL) ~ ., data = Water_data[c(1:7)])
+# Linear_model <- lm(`Total Water Consumption (KL)` ~ ., data = Water_data[c(1:7)])
+# `` sign is given because there is space between variable name.
+Linear_model <- lm(`Tanker Water (KL)` ~ ., data = Water_data[c(1:6)])
+summary(Linear_model)
+print("______________________________________________________________________")
+
+# dwtest(Linear_model)
+
+# Obviously it will come fit prefect regression line because addition of Tanker Water (KL) and borewell water (KL) give total.But problem is  while predicting we don't have real time/present data, if they had real time data, they wouldn't have this problem in the first place.
+# In real life we know how much tanker we have order last month based on that we can get amount of water, we got by tankers. also we can know amount of water extracted by borewell last month but the main problem is how we are going to predict number of tankers in present.
+
+# Linear_model <- lm(`Tanker Water (KL)` ~ .,data = Water_data[c(1:4)])
+Linear_model <- lm(`Tanker Water (KL)` ~ `Internal Borewell (KL)`,data = Water_data)
+summary(Linear_model)
+# Model is very bad if we remove total water(dependent) variable
+
+print("______________________________________________________________________")
+dwtest(Linear_model)
+# P-value < 0.05, H1 true, i.e. There is autocorrelation in the data.
+
+# I think this kind of situations it is better to use time series model like ARIMA or Bayesian method. Bayesian is very useful when we would be able to update the model from current observation. They don't have that kind technology otherwise I would just have just made dashboard for them to estimate number tankers required. 
+#So we will build ARIMA model for this problem.
+```
+
+
+
+# Building ARIMA model for this problem.
+
+```{r}
+# Another Rmd file
+
+```
+
